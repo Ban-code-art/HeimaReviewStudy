@@ -1,0 +1,43 @@
+server:
+  port: 9090
+
+spring:
+  datasource:
+    type: com.alibaba.druid.pool.DruidDataSource
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://localhost:3306/tlais
+    username: root
+    password: 123456
+  cache:
+    type: redis
+
+  data:
+    redis:
+      host: localhost
+      port: 6379
+
+
+
+#   ehcahe配置
+#  cache:
+#    type: jcache
+#    jcache:
+#      provider: org.ehcache.jsr107.EhcacheCachingProvider
+##配置H2数据库控制台
+
+#spring:
+#  application:
+#    name: SpringbootThird
+#  h2:
+#    console:
+#      path: /h2-console
+#      enabled: true
+#  datasource:
+#    url: jdbc:h2:~/test
+#    hikari:
+#      driver-class-name: org.h2.Driver
+#      username: sa
+#      password: 123456
+
+
+

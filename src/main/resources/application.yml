@@ -1,0 +1,6 @@
+spring:
+    application:
+        name: Springboot2Redis
+    data:
+        redis:
+            client-type: jedis

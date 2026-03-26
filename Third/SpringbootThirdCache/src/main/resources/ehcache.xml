@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<config xmlns="http://www.ehcache.org/v3"
+        xmlns:jsr107="http://www.ehcache.org/v3/jsr107">
+
+    <service>
+        <jsr107:defaults enable-management="true" enable-statistics="true"/>
+    </service>
+
+    <cache alias="book">
+        <key-type>java.lang.Integer</key-type>
+        <value-type>com.itheima.pro.book</value-type>
+        <expiry>
+            <ttl unit="minutes">10</ttl>
+        </expiry>
+        <resources>
+            <heap unit="entries">1000</heap>
+        </resources>
+    </cache>
+</config>
