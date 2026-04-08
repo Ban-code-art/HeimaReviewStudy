@@ -1,0 +1,27 @@
+spring:
+  application:
+        name: springbootAdmin_client
+  boot:
+    admin:
+      client:
+        url: http://localhost:8080
+server:
+  port: 8081
+
+management:
+  endpoint:
+    health:
+      show-details: always
+  endpoints:
+    web:
+      exposure:
+        include: '*'
+  info:
+    env:
+      enabled: true
+
+info:
+    env:
+        enabled: true
+    appName: springbootAdmin_client
+    version: 1.0.0

@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mvn -f \"D:/Java/Springboot2Redis/Redis/hm-dianping/pom.xml\" test)",
+      "Bash(mvn:*)"
+    ]
+  }
+}

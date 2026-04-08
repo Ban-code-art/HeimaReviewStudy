@@ -1,0 +1,14 @@
+spring:
+  application:
+        name: Redis_springbootTest1
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      database: 0
+      lettuce:
+        pool:
+          max-active: 8
+          max-idle: 8
+          min-idle: 0
+          max-wait: 10000

@@ -1,0 +1,13 @@
+spring:
+  application:
+        name: SpringbootMQ
+  activemq:
+    broker-url: tcp://localhost:61616
+  jms:
+    template:
+      default-destination: test-queue
+  rabbitmq:
+    host: localhost
+    port: 5672
+    username: guest
+    password: guest
