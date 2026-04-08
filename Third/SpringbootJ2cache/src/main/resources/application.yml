@@ -1,0 +1,15 @@
+server:
+  port: 9090
+
+spring:
+  datasource:
+    type: com.alibaba.druid.pool.DruidDataSource
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://localhost:3306/tlais
+    username: root
+    password: 123456
+j2cache:
+  config-location: j2cache.properties
+#  open-spring-cache: false
+
+
