@@ -32,7 +32,7 @@ public class RefreshTokenInterceptor implements HandlerInterceptor {
         String key = RedisConstants.LOGIN_USER_KEY + token;
         Map<Object, Object> userMap = stringRedisTemplate.opsForHash().entries(key);
 //        3.判断用户是否存在
-        if(userMap.isEmpty()){
+        if(userMap.isEmpty()){//这里不能够使用==null,这里最低限度就是空的Map，没有数据
 //            4.不存在，拦截，返回401状态码
 //            response.setStatus(401);
             return true;

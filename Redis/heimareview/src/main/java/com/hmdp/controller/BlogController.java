@@ -72,9 +72,14 @@ public class BlogController {
         // 获取当前页数据
         List<Blog> records = page.getRecords();
         // 查询用户
-        records.forEach(blog ->{
+        records.forEach(blog -> {
             Long userId = blog.getUserId();
             User user = userService.getById(userId);
+            if (user == null) {
+                blog.setName("未知用户");
+                blog.setIcon(null);
+                return;
+            }
             blog.setName(user.getNickName());
             blog.setIcon(user.getIcon());
         });

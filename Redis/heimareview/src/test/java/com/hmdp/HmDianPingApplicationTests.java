@@ -1,42 +1,80 @@
 package com.hmdp;
 
+import com.hmdp.entity.Shop;
 import com.hmdp.entity.User;
 import com.hmdp.mapper.UserMapper;
+import com.hmdp.service.IShopService;
+import com.hmdp.service.impl.ShopServiceImpl;
+import com.hmdp.utils.CacheClient;
+import com.hmdp.utils.RedisIdworker;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
 import java.util.stream.Collectors;
+
+import static com.hmdp.utils.RedisConstants.CACHE_SHOP_KEY;
 
 @SpringBootTest
 class HmDianPingApplicationTests {
     @Autowired
     private UserMapper userMapper;
+    @Autowired
+    private ShopServiceImpl shopServiceImpl;
+    @Autowired
+    private CacheClient cacheClient;
+    @Autowired
+    private RedisIdworker redisIdworker;
+
+    private ExecutorService es = Executors.newFixedThreadPool(500);
+    /*
+    * 测试保存商铺到Redis
+    * */
     @Test
-    void testSelect(){
-        User user1 = userMapper.selectById(1);
-        System.out.println(user1);
-        
-        User user2 = new User();
-        user2.setPhone("13800000000");
-        user2.setPassword("123456");
-        user2.setNickName("测试用户");
-        user2.setIcon("https://img.hmdp.com/1645200000000.png");
-        userMapper.insert(user2);
-        System.out.println(user2);
+    void testSaveToRedis(){
+        shopServiceImpl.saveShopToRedis(1L,1000L);
+
     }
-    
+    /*
+    * 测试工具类中的逻辑过期方法
+    * */
     @Test
-    void testDeleteBatchIds() {
-        // 批量删除表中id200到500的数据
-        List<Integer> ids = IntStream.rangeClosed(200, 500)
-                .boxed()
-                .collect(Collectors.toList());
-        userMapper.deleteBatchIds(ids);
-        System.out.println("删除成功，共删除 " + ids.size() + " 条记录");
+    void testLogical(){
+        Shop shop = shopServiceImpl.getById(1L);
+        cacheClient.setLogicalExpire(CACHE_SHOP_KEY + 1L,shop,10L,TimeUnit.SECONDS);
     }
+    /*
+    * 测试全局ID生成器
+    * */
+    @Test
+    void testNextId() throws InterruptedException {
+        CountDownLatch latch = new CountDownLatch(300);
+        Runnable task = () -> {
+            for (int i = 0; i < 100; i++) {
+                long id = redisIdworker.nextId("order");
+                System.out.println(id);
+            }
+            latch.countDown();
+        };
+        long begin = System.currentTimeMillis();
+        for (int i = 0; i < 300; i++) {
+            es.submit(task);
+
+        }
+        latch.await();
+        long end = System.currentTimeMillis();
+        System.out.println("耗时：" + (end - begin) + "ms");
+
+
+    }
+
+
 
 
 }

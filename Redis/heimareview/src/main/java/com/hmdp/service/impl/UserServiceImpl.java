@@ -88,7 +88,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
         String token = UUID.randomUUID().toString(true);//不包含横线的uuid
 
 //        7.2将User对象转为Hash存储
-        UserDTO userDTO = BeanUtil.copyProperties(user, UserDTO.class);
+        UserDTO userDTO = BeanUtil.copyProperties(user, UserDTO.class);//将User对象转为UserDTO对象
 
         Map<String, Object> userMap = BeanUtil.beanToMap(userDTO,new HashMap<>(),
                 CopyOptions.create()
@@ -98,7 +98,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
         String tokenKey = LOGIN_USER_KEY + token;
 //        7.3存储
         stringRedisTemplate.opsForHash().putAll(tokenKey, userMap);
-//        7.4设置token的有效期
+//        7.4设置token的有效期  这里设置的token有效期是登陆之后的有效期，如果要刷新的话就要重新登陆，但是使用拦截器可以刷新token
         stringRedisTemplate.expire(tokenKey, LOGIN_USER_TTL, TimeUnit.MINUTES);
 //        返回token给前端页面
         return Result.ok(token);
