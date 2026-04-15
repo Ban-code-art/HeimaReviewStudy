@@ -34,10 +34,10 @@ import static com.hmdp.utils.RedisConstants.*;
  */
 @Service
 public class ShopServiceImpl extends ServiceImpl<ShopMapper, Shop> implements IShopService {
-@Resource
-private StringRedisTemplate stringRedisTemplate;
-@Resource
-private CacheClient cacheClient;
+    @Resource
+    private StringRedisTemplate stringRedisTemplate;
+    @Resource
+    private CacheClient cacheClient;
     @Override
     public Result queryById(Long id) {
 /*        String key = CACHE_SHOP_KEY + id;
@@ -67,16 +67,22 @@ private CacheClient cacheClient;
         stringRedisTemplate.opsForValue().set(key, JSONUtil.toJsonStr(shop),CACHE_SHOP_TTL, TimeUnit.MINUTES);//将shop对象转换为json字符串并缓存
 //            7.返回店铺信息
         return Result.ok(shop);*/
-        //判断缓存穿透
+        /*
+        *缓存穿透问题解决
+        */
+//        1.使用本类中方法
 //        Shop shop = queryWithPassThrough(id);
+//        2.使用CacheClient类的方法
+//        Shop shop = cacheClient.queryWithPassThrough(CACHE_SHOP_KEY, id, Shop.class, this::getById);
 //        if (shop == null) {
 //            return Result.fail("店铺不存在");
 //        }
-
-//        使用互斥锁解决缓存击穿
+           /*
+           * 缓存击穿问题解决
+           * */
+//        1.使用互斥锁解决缓存击穿
 //        Shop shop = queryWithMutex(id);
-
-//        使用逻辑过期来解决缓存击穿
+//        2.使用逻辑过期来解决缓存击穿
 //        Shop shop = queryWithLogicalExpire(id);
         Shop shop = cacheClient.queryWithLogicalExpire(CACHE_SHOP_KEY, id, Shop.class, this::getById, CACHE_SHOP_TTL, TimeUnit.MINUTES);
 
@@ -194,7 +200,7 @@ private CacheClient cacheClient;
 
     }
 
-//    ⭐这个方法是用来处理逻辑过期方式的代码，和互斥锁方法同一级别 疑问：1.为什么使用了逻辑过期就不需要考虑缓存穿透问题了，直接删掉缓存穿透的代码
+//    ⭐这个方法是用来处理逻辑过期方式的代码， 疑问：1.为什么使用了逻辑过期就不需要考虑缓存穿透问题了，直接删掉缓存穿透的代码
     public Shop queryWithLogicalExpire(Long id ){
         String key = CACHE_SHOP_KEY + id;
 
@@ -259,7 +265,7 @@ private CacheClient cacheClient;
 //    封装逻辑过期时间
     RedisData redisData = new RedisData();
     redisData.setData(shop);
-    redisData.setExpireTime(LocalDateTime.now().plusSeconds(expireSeconds));
+    redisData.setExpireTime(LocalDateTime.now().plusSeconds(expireSeconds));//
 //    写入redis
     stringRedisTemplate.opsForValue().set(CACHE_SHOP_KEY+id, JSONUtil.toJsonStr(redisData), expireSeconds, TimeUnit.SECONDS);
 }
@@ -274,13 +280,6 @@ private CacheClient cacheClient;
     private void unlock(String key) {
         stringRedisTemplate.delete(key);
     }
-
-
-
-
-
-
-
 
 
 }

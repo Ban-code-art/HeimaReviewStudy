@@ -9,9 +9,13 @@ import com.hmdp.service.IVoucherOrderService;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.hmdp.utils.RedisIdworker;
 //import com.hmdp.utils.UserHolder;
+import com.hmdp.utils.SimpleRedisLock;
 import com.hmdp.utils.UserHolder;
+import org.redisson.api.RLock;
+import org.redisson.api.RedissonClient;
 import org.springframework.aop.framework.AopContext;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -31,6 +35,10 @@ public  class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vo
 private ISeckillVoucherService seckillVoucherService;
 @Autowired
 private RedisIdworker redisIdworker;
+@Autowired
+private StringRedisTemplate stringRedisTemplate;
+@Autowired
+private RedissonClient redissonClient;
     @Override
     public Result seckillVoucher(Long voucherId) {
 //        1.查询优惠券
@@ -51,11 +59,29 @@ private RedisIdworker redisIdworker;
 
 //        7。返回订单id
         Long id = UserHolder.getUser().getId();
-        synchronized (id.toString().intern()) {//当前用户的值一样，所以可以使用id.toString().intern()来同步
+        /*
+        * 使用分布式锁实现一人一单业务
+        * */
+        //业务一：创建锁对象
+//        SimpleRedisLock lock = new SimpleRedisLock("order:" + id, stringRedisTemplate);
+        RLock lock = redissonClient.getLock("order:" + id);
+
+        //业务二：尝试获取锁
+        boolean tryLock = lock.tryLock();
+        //判断锁是否获取成功
+        if(!tryLock){
+            return Result.fail("只允许一人一单");
+        }
+
+        try {
             //获取代理对象（事务）| 拿到当前对象的代理对象
             IVoucherOrderService proxy = (IVoucherOrderService) AopContext.currentProxy();
             return proxy.createVoucherOrder(voucherId);
+        } finally {
+            //业务三：释放锁
+            lock.unlock();
         }
+
     }
 
 //    @Override
@@ -84,7 +110,7 @@ private RedisIdworker redisIdworker;
                 return Result.fail("已购买");
             }
 //        5.扣减库存
-//        voucher.setStock(voucher.getStock() - 1);
+//        voucher.setStock(voucher.getStock() - 1); 防止超卖
             boolean success = seckillVoucherService.update()
                     .setSql("stock = stock - 1")
                     .eq("voucher_id", voucherId)
