@@ -4,6 +4,7 @@ import cn.hutool.core.util.BooleanUtil;
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.json.JSONObject;
 import cn.hutool.json.JSONUtil;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.hmdp.dto.Result;
 import com.hmdp.entity.Shop;
 import com.hmdp.mapper.ShopMapper;
@@ -11,13 +12,20 @@ import com.hmdp.service.IShopService;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.hmdp.utils.CacheClient;
 import com.hmdp.utils.RedisData;
+import com.hmdp.utils.SystemConstants;
 import jakarta.annotation.Resource;
+import org.springframework.data.geo.Distance;
+import org.springframework.data.geo.GeoResult;
+import org.springframework.data.geo.GeoResults;
+import org.springframework.data.redis.connection.RedisGeoCommands;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.domain.geo.GeoReference;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import javax.smartcardio.CardChannel;
 import java.time.LocalDateTime;
+import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -106,7 +114,64 @@ public class ShopServiceImpl extends ServiceImpl<ShopMapper, Shop> implements IS
         stringRedisTemplate.delete(CACHE_SHOP_KEY + id);
         return Result.ok();
     }
+/*
+* 附近商铺业务
+* */
+    @Override
+    public Result queryShopByType(Integer typeId, Integer current, Double x, Double y) {
+//        1.判断是否需要根据坐标查询
+        if (x==null || y==null) {
+//            不需要坐标查询，按照数据库查询
+            Page<Shop> page = query()
+                    .eq("type_id", typeId)
+                    .page(new Page<>(current, SystemConstants.DEFAULT_PAGE_SIZE));
+            return Result.ok(page.getRecords());
 
+        }
+//        2.计算分页参数
+        int from = (current - 1) * SystemConstants.DEFAULT_PAGE_SIZE;
+        int end = current * SystemConstants.DEFAULT_PAGE_SIZE;
+
+//        3.查询redis，按照距离排序，分页，结果：shopId,distance
+        String key = SHOP_GEO_KEY + typeId;
+        GeoResults<RedisGeoCommands.GeoLocation<String>> results = stringRedisTemplate.opsForGeo()
+                .search(
+                        key,
+                        GeoReference.fromCoordinate(x, y),
+                        new Distance(5000),
+                        RedisGeoCommands.GeoSearchCommandArgs.newGeoSearchArgs().includeDistance().limit(end)
+                );
+//        4.解析出id
+        if (results == null) {
+            return Result.ok(Collections.emptyList());
+        }
+        List<GeoResult<RedisGeoCommands.GeoLocation<String>>> list = results.getContent();
+        if (list.size()<=from) {
+//            没有下一页了，结束
+            return Result.ok(Collections.emptyList());
+        }
+
+//        4.1.截取form ~ end的部分
+        List<Long> ids = new ArrayList<>(list.size());
+        Map<String, Distance> distanceMap = new HashMap<>(list.size());
+        list.stream().skip(from).forEach(result ->{
+//            4.2获取店铺id
+            String shopIdStr = result.getContent().getName();
+            ids.add(Long.valueOf(shopIdStr));
+//            4.3.获取距离
+            Distance distance = result.getDistance();
+            distanceMap.put(shopIdStr, distance);
+        });
+//        5.根据id查询shop
+        String idStr = StrUtil.join(",", ids);
+        List<Shop> shops = query().in("id", ids).last("order by field(id, " + idStr + ")").list();
+        for (Shop shop : shops) {
+            shop.setDistance(distanceMap.get(shop.getId().toString()).getValue());
+        }
+        return Result.ok(shops);
+    }
+
+/*
     //⭐定义一个线程池 10个线程
     private final ExecutorService CACHE_REBUILD_EXECUTOR = Executors.newFixedThreadPool(10);
 
@@ -141,9 +206,10 @@ public class ShopServiceImpl extends ServiceImpl<ShopMapper, Shop> implements IS
         return shop;
 
     }
+*/
 
 
-//    ⭐这个是互斥锁的方法代码
+/*//    ⭐这个是互斥锁的方法代码
     public Shop queryWithMutex(Long id ){
         String key = CACHE_SHOP_KEY + id;
 //        1.从Redis中查询商铺缓存，这里使用的是string的redis
@@ -198,10 +264,10 @@ public class ShopServiceImpl extends ServiceImpl<ShopMapper, Shop> implements IS
 //            8.返回店铺信息
         return shop;
 
-    }
+    }*/
 
 //    ⭐这个方法是用来处理逻辑过期方式的代码， 疑问：1.为什么使用了逻辑过期就不需要考虑缓存穿透问题了，直接删掉缓存穿透的代码
-    public Shop queryWithLogicalExpire(Long id ){
+   /* public Shop queryWithLogicalExpire(Long id ){
         String key = CACHE_SHOP_KEY + id;
 
 //        1.从Redis中查询商铺缓存，这里使用的是string的redis
@@ -250,7 +316,7 @@ public class ShopServiceImpl extends ServiceImpl<ShopMapper, Shop> implements IS
 //            7.返回店铺信息
         return shop;
 
-    }
+    }*/
 
 
 //    ⭐这个方法用于在redis中添加有experetime逻辑过期时间的店铺信息（逻辑过期相关代码）
@@ -270,6 +336,7 @@ public class ShopServiceImpl extends ServiceImpl<ShopMapper, Shop> implements IS
     stringRedisTemplate.opsForValue().set(CACHE_SHOP_KEY+id, JSONUtil.toJsonStr(redisData), expireSeconds, TimeUnit.SECONDS);
 }
 
+/*
     //⭐定义一个方法获取锁setnx（互斥锁相关代码）
     private boolean tryLock(String key) {
         Boolean flag = stringRedisTemplate.opsForValue().setIfAbsent(key, "1", 10, TimeUnit.MINUTES);
@@ -280,6 +347,7 @@ public class ShopServiceImpl extends ServiceImpl<ShopMapper, Shop> implements IS
     private void unlock(String key) {
         stringRedisTemplate.delete(key);
     }
+*/
 
 
 }
